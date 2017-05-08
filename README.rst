@@ -36,7 +36,7 @@ FIGlet
 
 dictionary file
 ---------------
-    A dictionary file must be set by the dictFile global variable in order
+    A dictionary file must be set by the ``dictFile global`` variable in order
     to print actual random words.  Without a dictionary file, words of
     random lowercase letters will be printed instead.
 
