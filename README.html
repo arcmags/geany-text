@@ -7,37 +7,114 @@
 <title>geany-text</title>
 <style type="text/css">
 
+/*======================  dark.css  ======================*/
+body {
+    background: #303030
+}
+
+.document {
+    margin-left: 30px;
+    margin-right: 30px;
+    padding-left:4px;
+    padding-right: 4px;
+    background: #222222;
+    border: solid 4px #00abab;
+    box-shadow: 10px 10px 5px #00000066;
+}
 
 * {
-    background: #303030;
     color: #fcfcfc;
     font-size: 16px;
 }
 
+
 h1, h2, h3, h4, h5, h6 {
-    color: #00abab;
     margin: 0 0 4px 0;
     padding: 0;
 }
 h1 {
+    margin: 16px 0 4px 0;
     font-size: 18px;
 }
 h2 {
+    margin: 4px 0 4px 0;
     font-size: 17px;
 }
 
-p {
+h1.title {
     margin: 0 0 16px 0;
+    text-align: center;
+    font-size: 20px;
+    color: #00abab;
+}
+
+h2.subtitle {
+    text-align: center;
+    font-size: 18px;
+    color: #009b9b;
+}
+
+p {
+    margin: 0 0 4px 0;
 }
 
 blockquote {
     margin-top: 0;
-    margin-bottom: 0;
+    margin-bottom: 4px;
+}
+
+blockquote blockquote {
+    margin-bottom: 12px;
+}
+
+a:link,a:visited,a:active {
+    color: #005FFF;
+    text-decoration: none;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #00AA00;
+    text-decoration: none;
 }
 
 pre {
-    margin: 0;
-    padding: 0;
+    margin: 0 4px 4px 4px;
+    padding: 2px;
+    background: #000000;
+    border: solid 1px #303030;
+    font-family: Hack, monospace;
+}
+pre.code .ln { /* line numbers */
+    color: #181818;
+}
+pre.code .comment,
+code .comment {
+    color: #ff0000
+}
+pre.code .keyword,
+code .keyword {
+    color: #00acac;
+}
+pre.code .literal.string,
+code .literal.string {
+    color: #0C5404
+}
+pre.code .name.builtin,
+code .name.builtin {
+    color: #00acac
+}
+pre.code .deleted,
+code .deleted {
+    background-color: #380000
+}
+pre.code .inserted,
+code .inserted {
+    background-color: #002800
+}
+.pre,
+.literal {
+    font-family: Hack, monospace;
 }
 
 .borderless, table.borderless td, table.borderless th {
@@ -198,8 +275,8 @@ div.system-message {
 }
 
 div.system-message p.system-message-title {
-  color: red ;
-  font-weight: bold;
+    color: red ;
+    font-weight: bold;
 }
 
 div.topic {
@@ -215,13 +292,7 @@ h6.section-subtitle {
     margin-top: 0.4em;
 }
 
-h1.title {
-    text-align: center;
-}
 
-h2.subtitle {
-    text-align: center;
-}
 
 hr.docutils {
   width: 75% }
@@ -323,24 +394,8 @@ p.sidebar-subtitle {
 p.topic-title {
   font-weight: bold }
 
-pre.address {
-  margin-bottom: 0 ;
-  margin-top: 0 ;
-  font: inherit }
 
-pre.literal-block, pre.doctest-block, pre.math, pre.code {
-    margin: 0 4px 0 4px;
-    padding: 0;
-}
 
-pre.code .ln { color: grey; } /* line numbers */
-pre.code, code { background-color: #000000 }
-pre.code .comment, code .comment { color: #ff0000 }
-pre.code .keyword, code .keyword { color: #00acac; }
-pre.code .literal.string, code .literal.string { color: #0C5404 }
-pre.code .name.builtin, code .name.builtin { color: #00acac }
-pre.code .deleted, code .deleted { background-color: #380000}
-pre.code .inserted, code .inserted { background-color: #002800}
 
 span.classifier {
   font-family: sans-serif ;
@@ -420,7 +475,6 @@ ul.auto-toc {
 <body>
 <div class="document" id="geany-text">
 <h1 class="title">geany-text</h1>
-<h2 class="subtitle" id="by-c-magyar">by C.Magyar</h2>
 
 <p>This file describes the python script <tt class="docutils literal"><span class="pre">geany-text</span></tt> written to integrate with
 the open source text editor <a class="reference external" href="https://github.com/geany/geany/">Geany</a>.</p>
@@ -435,12 +489,12 @@ command line.</p>
 <h2>Geany</h2>
 <blockquote>
 This script is intended to integrate with the open source text editor
-Geany (package 'geany').</blockquote>
+Geany (package <tt class="docutils literal">geany</tt>).</blockquote>
 </div>
 <div class="section" id="xdotool">
 <h2>xdotool</h2>
 <blockquote>
-Package 'xdotool' is required to gain information about the active
+Package <tt class="docutils literal">xdotool</tt> is required to gain information about the active
 file in a focused Geany window.  If xdotool is not present, or if
 geany-text is called from the command line without specifying a
 document type, the docType variable will revert to the script default.</blockquote>
@@ -448,7 +502,7 @@ document type, the docType variable will revert to the script default.</blockquo
 <div class="section" id="figlet">
 <h2>FIGlet</h2>
 <blockquote>
-Package 'figlet' is required to print ascii art block text.</blockquote>
+Package <tt class="docutils literal">figlet</tt> is required to print ascii art block text.</blockquote>
 </div>
 <div class="section" id="dictionary-file">
 <h2>dictionary file</h2>
@@ -462,9 +516,8 @@ random lowercase letters will be printed instead.</blockquote>
 <h1>Setup</h1>
 <p>To use this script, place it in your local /bin directory contained in
 your path and create the custom Geany command:</p>
-<pre class="literal-block">
-xargs -0 geany-text
-</pre>
+<blockquote>
+<tt class="docutils literal">xargs <span class="pre">-0</span> <span class="pre">geany-text</span></tt></blockquote>
 <p>Add a custom keybinding in Geany's preferences for the new command.  This
 keybinding will now send the currently active line in Geany directly to
 this script as a single argument for parsing.  The output of the script
@@ -473,70 +526,90 @@ replaces the line sent to this script.</p>
 <div class="section" id="usage">
 <h1>Usage</h1>
 <blockquote>
-COMMAND [ARGS] [PARAMETERS]</blockquote>
-<p>A [COMMAND] may be given anywhere on a line.  Every command has optional
-corresponding [ARGS] that may be set.  Users can also override most
-default display [PARAMETERS] by setting their corresponding values.</p>
-<dl class="docutils">
-<dt>COMMANDS:</dt>
-<dd><dl class="first last docutils">
-<dt>:a, :ascii [text] [figlet args]</dt>
-<dd>Print text in various ASCII art block text.  All arguments are piped
+<tt class="docutils literal">[COMMAND] [ARGS] [PARAMETERS]</tt></blockquote>
+<p>A <tt class="docutils literal">[COMMAND]</tt> may be given anywhere on the line.  Every command has optional
+corresponding <tt class="docutils literal">[ARGS]</tt> that may be set.  Users can also override most
+default display <tt class="docutils literal">[PARAMETERS]</tt> by setting their corresponding values.</p>
+</div>
+<div class="section" id="commands">
+<h1>Commands</h1>
+<blockquote>
+<p><tt class="docutils literal">:a, :ascii [text] [figlet args]</tt></p>
+<blockquote>
+Print text in various ASCII art block text.  All arguments are piped
 directly to figlet.  See figlet documentation for details on
-selecting different fonts and parameters.</dd>
-<dt>:f, :func, :function [name]</dt>
-<dd>Print a function declaration for [name].</dd>
-<dt>:h, :head [title] [width]</dt>
-<dd>Print a four line file header with [title] centered on first line.</dd>
-<dt>:help</dt>
-<dd>Print this documentation.</dd>
-<dt>:p, :print [str or val]</dt>
-<dd>Print [str or val] in a standard print statement.  When calling from
-a Geany session, inclose [str or val] in quotes to obtain a simple
-print string, or leave the quotes off to call ':print-val'.</dd>
-<dt>:pv, :pval, :print-val [value]</dt>
-<dd>Print a standard print statement to display &quot;[val] = [value of val]&quot;.</dd>
-<dt>:r, :rl, :random [num]</dt>
-<dd>Print random [num] lines of random words.</dd>
-<dt>:rw [num]</dt>
-<dd>Print random [num] as lines of length lineWidth.</dd>
-<dt>:s, :shebang [type]</dt>
-<dd>Print document shebang.  If [type] is not provided and cannot be
-determined from current file name, the default document type is used.</dd>
-<dt>:t, :title [title] [width]</dt>
-<dd>Print a single line title.</dd>
-</dl>
-</dd>
-<dt>PARAMETERS:</dt>
-<dd><dl class="first last docutils">
-<dt>-hblock, -head-block, -hbar [char]</dt>
-<dd>Use [char] as headBlock character on the ends of a header.</dd>
-<dt>-tpad, -title-pad [text]</dt>
-<dd>Use [text] as titlePad characters around title bar text.</dd>
-<dt>-tbar, -title-bar [char]</dt>
-<dd>Use [char] as titleBar character in titles and headings.</dd>
-<dt>-hpad, -head-pad [text]</dt>
-<dd>Use [text] as headPad characters around inner heading text.</dd>
-<dt>-t, type, -doc-type [document type]</dt>
-<dd>Use [document type] as docType (as long as it is a recognized type).
-Useful for producing formatted text at the command line.</dd>
-<dt>-w, -width [width]</dt>
-<dd>Override default width.</dd>
-</dl>
-</dd>
-<dt>USER SETTINGS:</dt>
-<dd><dl class="first last docutils">
-<dt>dictFile</dt>
-<dd>String containing the full path to desired dictionary file to use for
-printing of random text with ':r' option.</dd>
-<dt>headTopLeft, headTopRight, headBottomLeft</dt>
-<dd>Strings to print in respective inner header position: northwest,
-northeast, and southwest.</dd>
-<dt>headBottomRights</dt>
-<dd>List of random strings to select from for southeast inner header text.</dd>
-</dl>
-</dd>
-</dl>
+selecting different fonts and parameters.</blockquote>
+<p><tt class="docutils literal">:f, :func, :function [name]</tt></p>
+<blockquote>
+Print a function declaration for <tt class="docutils literal">[name]</tt>.</blockquote>
+<p><tt class="docutils literal">:h, :head [title] [width]</tt></p>
+<blockquote>
+Print a four line file header with <tt class="docutils literal">[title]</tt> centered on first line.</blockquote>
+<p><tt class="docutils literal">:help</tt></p>
+<blockquote>
+Print this documentation.</blockquote>
+<p><tt class="docutils literal">:p, :print [str or val]</tt></p>
+<blockquote>
+Print <tt class="docutils literal">[str or val]</tt> in a standard print statement.  When calling from
+a Geany session, inclose <tt class="docutils literal">[str or val]</tt> in quotes to obtain a simple
+print string, or leave the quotes off to call ':print-val'.</blockquote>
+<p><tt class="docutils literal">:pv, :pval, <span class="pre">:print-val</span> [value]</tt></p>
+<blockquote>
+Print a standard print statement to display <tt class="docutils literal">[val] = [value of val]</tt>.</blockquote>
+<p><tt class="docutils literal">:r, :rl, :random [num]</tt></p>
+<blockquote>
+Print random <tt class="docutils literal">[num]</tt> lines of random words.</blockquote>
+<p><tt class="docutils literal">:rw [num]</tt></p>
+<blockquote>
+Print random <tt class="docutils literal">[num]</tt> as lines of length lineWidth.</blockquote>
+<p><tt class="docutils literal">:s, :shebang [type]</tt></p>
+<blockquote>
+Print document shebang.  If <tt class="docutils literal">[type]</tt> is not provided and cannot be
+determined from current file name, the default document type is used.</blockquote>
+<p><tt class="docutils literal">:t, :title [title] [width]</tt></p>
+<blockquote>
+Print a single line title.</blockquote>
+</blockquote>
+</div>
+<div class="section" id="parameters">
+<h1>Parameters</h1>
+<blockquote>
+<p><tt class="docutils literal"><span class="pre">-hblock,</span> <span class="pre">-head-block,</span> <span class="pre">-hbar</span> [char]</tt></p>
+<blockquote>
+Use <tt class="docutils literal">[char]</tt> as headBlock character on the ends of a header.</blockquote>
+<p><tt class="docutils literal"><span class="pre">-tpad,</span> <span class="pre">-title-pad</span> [text]</tt></p>
+<blockquote>
+Use <tt class="docutils literal">[text]</tt> as titlePad characters around title bar text.</blockquote>
+<p><tt class="docutils literal"><span class="pre">-tbar,</span> <span class="pre">-title-bar</span> [char]</tt></p>
+<blockquote>
+Use <tt class="docutils literal">[char]</tt> as titleBar character in titles and headings.</blockquote>
+<p><tt class="docutils literal"><span class="pre">-hpad,</span> <span class="pre">-head-pad</span> [text]</tt></p>
+<blockquote>
+Use <tt class="docutils literal">[text]</tt> as headPad characters around inner heading text.</blockquote>
+<p><tt class="docutils literal"><span class="pre">-t,</span> type, <span class="pre">-doc-type</span> [document type]</tt></p>
+<blockquote>
+Use <tt class="docutils literal">[document type]</tt> as docType (as long as it is a recognized type).
+Useful for producing formatted text at the command line.</blockquote>
+<p><tt class="docutils literal"><span class="pre">-w,</span> <span class="pre">-width</span> [width]</tt></p>
+<blockquote>
+Override default width.</blockquote>
+</blockquote>
+</div>
+<div class="section" id="user-settings">
+<h1>User Settings</h1>
+<blockquote>
+<p><tt class="docutils literal">dictFile</tt></p>
+<blockquote>
+String containing the full path to desired dictionary file to use for
+printing of random text with ':r' option.</blockquote>
+<p><tt class="docutils literal">headTopLeft, headTopRight, headBottomLeft</tt></p>
+<blockquote>
+Strings to print in respective inner header position: northwest,
+northeast, and southwest.</blockquote>
+<p><tt class="docutils literal">headBottomRights</tt></p>
+<blockquote>
+List of random strings to select from for southeast inner header text.</blockquote>
+</blockquote>
 </div>
 </div>
 </body>
