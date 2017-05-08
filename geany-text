@@ -1,0 +1,698 @@
+#!/usr/bin/env python
+##===============================  geany-text  ===============================##
+# Copyright (C) 2017  Chris Magyar                       c.magyar.ec@gmail.com #
+##============================================================================##
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+"""SCRIPT:
+    geany-text
+
+DESCRIPTION:
+    Print various formatted strings directly in Geany text editor or at the
+    command line.
+
+REQUIREMENTS:
+    Geany
+        This script is intended to integrate with the open source text editor
+        Geany (package 'geany').
+
+    xdotool
+        Package 'xdotool' is required to gain information about the active
+        file in a focused Geany window.  If xdotool is not present, or if
+        geany-text is called from the command line without specifying a
+        document type, the docType variable will revert to the script default.
+
+    FIGlet
+        Package 'figlet' is required to print ascii art block text.
+
+    dictionary file
+        A dictionary file must be set by the dictFile global variable in order
+        to print actual random words.  Without a dictionary file, words of
+        random lowercase letters will be printed instead.
+
+SETUP:
+    To use this script, place it in your local /bin directory contained in
+    your path and create the custom Geany command:
+        'xargs -0 geany-text'
+
+    Add a custom keybinding in Geany's preferences for the new command.  This
+    keybinding will now send the currently active line in Geany directly to
+    this script as a single argument for parsing.  The output of the script
+    replaces the line sent to this script.
+
+USAGE:
+    [COMMAND] [ARGS] [PARAMETERS]
+
+    A [COMMAND] may be given anywhere on a line.  Every command has optional
+    corresponding [ARGS] that may be set.  Users can also override most
+    default display [PARAMETERS] by setting their corresponding values.
+
+COMMANDS:
+    :a, :ascii [text] [figlet args]
+        Print text in various ASCII art block text.  All arguments are piped
+        directly to figlet.  See figlet documentation for details on
+        selecting different fonts and parameters.
+
+    :f, :func, :function [name]
+        Print a function declaration for [name].
+
+    :h, :head [title] [width]
+        Print a four line file header with [title] centered on first line.
+
+    :help
+        Print script documentation.
+
+    :p, :print [str or val]
+        Print [str or val] in a standard print statement.  When calling from
+        a Geany session, inclose [str or val] in quotes to obtain a simple
+        print string, or leave the quotes off to call ':print-val'.
+
+    :pv, :pval, :print-val [value]
+        Print a standard print statement to display "[val] = [value of val]".
+
+    :r, :rl, :random [num]
+        Print random [num] lines of random words.
+
+    :rw [num]
+        Print random [num] as lines of length lineWidth.
+
+    :s, :shebang [type]
+        Print document shebang.  If [type] is not provided and cannot be
+        determined from current file name, the default document type is used.
+
+    :t, :title [title] [width]
+        Print a single line title.
+
+PARAMETERS:
+    -hblock, -head-block, -hbar [char]
+       Use [char] as headBlock character on the ends of a header.
+
+    -tpad, -title-pad [text]
+        Use [text] as titlePad characters around title bar text.
+
+    -tbar, -title-bar [char]
+        Use [char] as titleBar character in titles and headings.
+
+    -hpad, -head-pad [text]
+        Use [text] as headPad characters around inner heading text.
+
+    -t, type, -doc-type [document type]
+        Use [document type] as docType (as long as it is a recognized type).
+        Useful for producing formatted text at the command line.
+
+    -w, -width [width]
+        Override default width.
+
+USER SETTINGS:
+    dictFile
+        String containing the full path to desired dictionary file to use for
+        printing of random text with ':r' option.
+
+    headTopLeft, headTopRight, headBottomLeft
+        Strings to print in respective inner header position: northwest,
+        northeast, and southwest.
+
+    headBottomRights
+        List of random strings to select from for southeast inner header text.
+"""
+#TODO:
+#    :n, :new [name] [author] ...?
+#        Insert new template with [name] and [author] in appropriate places.
+#        (maybe guess type from document name extension?)
+#        (need to specify what type exactly in some cases though, ie. LaTeX)
+#
+#  * look into piping a bunch of lines to `sort` or `jq` or `tidy` or whatever
+#    (custom tidy functions?)
+#
+# ** Parse Geany's filetype_extensions.conf file for file extension mappings.
+#
+# ** Use name/PID of calling process to determine parsing and output type.
+#    (or just fully disable calling from a terminal; create wrapper
+#     script/function for calls from the command line if needed)
+
+import os
+import random
+import re
+import shlex
+import string
+#import subprocess
+from subprocess import Popen, PIPE
+import sys
+
+
+##============================  SCRIPT VARIABLES  ============================##
+# Set all user specific settings and default variables.
+##===========================  user settings  ============================##
+templateDir=""                                  # templates directory
+dictFile="/usr/share/dict/english"              # dictionary file
+headBottomLeft="Free as in speech."             # SW heading text
+headBottomRights=[                              # SE heading text choices
+    "Bend it to your will!",
+    "Freedom is Free!",
+    "Ride it like it's stolen!",
+    "Steal this source!",
+    "Take it, use it, abuse it!",
+    "Use/change this shit!"]
+headTopLeft="by Chris Magyar."                  # NW heading text
+headTopRight="c.magyar.ec@gmail.com"            # NE heading text
+##===========================  default values  ===========================##
+headBlock="#"                                   # default head block char
+headPad=" "                                     # default head padding
+lineWidth=80                                    # default line width
+titleBar="="                                    # default title bar char
+titlePad="  "                                   # default title padding
+docType="bash"                                  # default document type
+docTypes=["bash","c","cpp","css","h","hs",      # known doc types (by extension)
+    "html","java","py","rb","sage","sh","tex","txt"]
+# Initial global variables.
+cmd=""                                          # command
+cmdLine=""                                      # command line
+cmdIndent=""                                    # indent before command line
+cmdPre=""                                       # pre-text before command
+cmdArgs=[]                                      # command arguments
+
+
+##=================================  main()  =================================##
+# Call parsing and print functions.
+def main():
+    # parse script input
+    parse_input()
+    # call print function
+    if cmd==":a":
+        print_ascii_art()
+    elif cmd==":f":
+        print_function()
+    elif cmd==":n":
+        print_new()
+    elif cmd in [":h",":t"]:
+        print_head_title()
+    elif cmd==":help":
+        print_help_auto()
+    elif cmd in [":p",":pv"]:
+        print_print()
+    elif cmd in [":r",":rl",":rw"]:
+        print_random()
+    elif cmd in [":s"]:
+        print_shebang()
+    elif cmd in [":x"]:
+        print_execute()
+    else:
+        print(cmdLine)
+
+
+##=============================  parse_input()  ==============================##
+# Parse script input.  Input can come as either a standard array of arguments
+# when invoked from a command line, or as a single string of arguments when
+# invoked from within Geany (with 'xargs -0').  This function parses both forms
+# of input, executes and removes parameter settings, checks the document type if
+# not set by user, and renames all known commands to their short names.  All
+# script values are saved to respective global variables to be accessed by all
+# print function.
+def parse_input():
+    docTypeUserSet=False
+    ##==========================  parse_line()  ==========================##
+    # Parse input as a single string of arguments passed via 'xargs -0'.
+    def parse_line():
+        global cmd, cmdLine, cmdIndent, cmdPre, cmdArgs
+        if len(sys.argv)>1:
+            # get entire input line
+            cmdLine=str(sys.argv[1]).strip("\n")
+            # parse input line
+            regStr=r"(.?.? *)(.*?)(--h(elp)?|:[a-z]+) ?(.*)"
+            regMatch=re.match(regStr,str(sys.argv[1]))
+            if regMatch is not None:
+                # get indent, pretext, and command
+                cmdIndent=regMatch.group(1)
+                cmdPre=regMatch.group(2)
+                cmd=regMatch.group(3)
+                argsStr=regMatch.group(5)
+                # parse command arguments and add to cmdArgs
+                while argsStr!="":
+                    regStr=r"(?P<quote>['\"]?)(.*?)(?P=quote) ?(.*)"
+                    regMatch=re.match(regStr,argsStr)
+                    # if argument is not enclosed in quotes: break at space
+                    if regMatch.group("quote")=="":
+                        regStr=r"([^ ]*) ?(.*)"
+                        regMatch=re.match(regStr,argsStr)
+                        cmdArgs+=[regMatch.group(1)]
+                        argsStr=regMatch.group(2)
+                    else:
+                        cmdArgs+=[regMatch.group(2)]
+                        argsStr=regMatch.group(3)
+
+    ##==========================  parse_args()  ==========================##
+    # Parse input as array of arguments.
+    def parse_args():
+        global cmd, cmdLine, cmdArgs
+        if len(sys.argv)>1:
+            cmd=str(sys.argv[1])
+            cmdLine+=str(sys.argv[1])
+        for i in range(2,len(sys.argv)):
+            cmdArgs+=[str(sys.argv[i])]
+            cmdLine+=" "+str(sys.argv[i])
+
+    ##=========================  set_cmd_name()  =========================##
+    # Rename known command to its short name.
+    def set_cmd_name():
+        global cmd
+        # assign short name to cmd
+        if cmd==":ascii":
+            cmd=":a"
+        elif cmd in [":function",":func"]:
+            cmd=":f"
+        elif cmd in [":head",":header"]:
+            cmd=":h"
+        elif cmd==":title":
+            cmd=":t"
+        elif cmd==":random":
+            cmd=":r"
+        elif cmd==":shebang":
+            cmd=":s"
+        elif cmd==":print":
+            cmd=":p"
+        elif cmd in [":print-val",":printv",":pval"]:
+            cmd=":pv"
+        elif cmd in ["--h","--help"]:
+            cmd=":help"
+        elif cmd in [":exe",":execute",":sh"]:
+            cmd=":x"
+
+    ##========================  set_parameters()  ========================##
+    # Parse cmdArgs for text output parameters and remove corresponding
+    # arguments and values from cmdArgs.  If no document type is specified,
+    # check
+    def set_parameters():
+        global headBlock, headPad, lineWidth, titleBar, titlePad, docType
+        nonlocal docTypeUserSet
+        i=0
+        # :shebang docType
+        if cmd==":s" and len(cmdArgs)>0:
+            if cmdArgs[0] in docTypes:
+                docType=cmdArgs[0]
+                docTypeUserSet=True
+                i+=1
+        while i<len(cmdArgs):
+            # -type docType
+            if cmdArgs[i] in ["-t","-type","-doc-type"]:
+                cmdArgs.pop(i)
+                if i<len(cmdArgs):
+                    tmpType=cmdArgs.pop(i)
+                    if tmpType in docTypes:
+                        docType=tmpType
+                        docTypeUserSet=True
+            # -tbar titleBar
+            elif cmdArgs[i] in ["-title-bar","-tbar"]:
+                cmdArgs.pop(i)
+                if i<len(cmdArgs):
+                    titleBar=cmdArgs.pop(i)[0]
+            # -hblock headBlock
+            elif cmdArgs[i] in ["-head-block","-hblock","-hbar"]:
+                cmdArgs.pop(i)
+                if i<len(cmdArgs):
+                    headBlock=cmdArgs.pop(i)[0]
+            # -hpad headPad
+            elif cmdArgs[i] in ["-head-pad","-hpad",]:
+                cmdArgs.pop(i)
+                if i<len(cmdArgs):
+                    headPad=cmdArgs.pop(i)
+            # -tpad titlePad
+            elif cmdArgs[i] in ["-title-pad","-tpad",]:
+                cmdArgs.pop(i)
+                if i<len(cmdArgs):
+                    titlePad=cmdArgs.pop(i)
+            # -w lineWidth
+            elif cmdArgs[i] in ["-w","-width"]:
+                # if ':ascii' option, pass '-w' argument to figlet:
+                if cmd==":a":
+                    cmdArgs[i]="-w"
+                    i+=1
+                else:
+                    cmdArgs.pop(i)
+                    if i<len(cmdArgs):
+                        tmpWidth=cmdArgs.pop(i)
+                        if re.match("^[0-9]+$",tmpWidth) is not None:
+                            lineWidth=int(tmpWidth)
+            else:
+                i+=1
+
+    ##=========================  set_doc_type()  =========================##
+    # Set document type from file extension or shebang.
+    def set_doc_type():
+        global docType
+        # if package 'xdotool' is present:
+        if os.path.isfile('/usr/bin/xdotool')==True:
+            # get currently active Geany document name from window title
+            wName=os.popen('xdotool getwindowfocus getwindowname').read()
+            # if Geany is active window and current document is titled:
+            regStr=r".*\*?untitled.*"
+            if not re.match(regStr,wName)and re.match('.*Geany.*',wName):
+                regStr=r"\*?((.*?)(\.(.*?)|)) - (/.*?) - Geany"
+                docReg=re.match(regStr,wName)
+                docName=docReg.group(5)+"/"+docReg.group(1)
+                docExt=docReg.group(4)
+                # if file extension exists and extension is known:
+                if docExt is not None and docExt in docTypes:
+                    docType=docExt
+                # if no file extension or extension is unknown:
+                else:
+                    # read first line of file and parse shebang
+                    with open(docName, 'r') as f:
+                        docShebang=f.readline()
+                    if re.match("#.*bash.*",docShebang):
+                        docType="bash"
+                    elif re.match(".*env python.*",docShebang):
+                        docType="py"
+                    elif re.match(".*env ruby.*",docShebang):
+                        docType="rb"
+                    elif re.match(".*env.*haskell.*",docShebang):
+                        docType="hs"
+                    elif re.match(".*env sage.*",docShebang):
+                        docType="sage"
+
+    ##====================================================================##
+    # parse arguments
+    if len(sys.argv)<3:
+        parse_line()
+    else:
+        parse_args()
+    # set command name
+    set_cmd_name()
+    # set text output parameters
+    set_parameters()
+    # set document type (if not set by parameters)
+    if not docTypeUserSet:
+        set_doc_type()
+
+
+##==============================  print_args()  ==============================##
+# Print script arguments for debugging purposes.
+def print_args():
+    print("cmdLine="+cmdLine)
+    print("cmdIndent='"+cmdIndent+"'")
+    print("cmdPre='"+cmdPre+"'")
+    print("cmd='"+cmd+"'")
+    print("cmdArgs=",end='')
+    print(cmdArgs)
+
+
+##===========================  print_ascii_art()  ============================##
+# Call figlet to print ascii art fonts.
+def print_ascii_art():
+    # if package 'figlet' exists:
+    if os.path.isfile('/usr/bin/figlet')==True:
+        # make command with figlet (and sed to remove blank lines)
+        figletCmd="figlet "+' '.join("'"+arg+"'" for arg in cmdArgs)+\
+            " | sed -e '/^\s*$/d'"
+        asciiText=os.popen(figletCmd).read()
+        # print indented ascii art block text
+        for line in asciiText.split('\n'):
+            print(cmdIndent+line)
+    else:
+        print(cmdLine)
+
+
+##============================  print_execute()  =============================##
+# Pass remainder of line to shell as a command and print output if no errors.
+def print_execute():
+    # get commands after :x execute token
+    lineReg = re.match('.*' + cmd + ' +(.*)', cmdLine)
+    cmds = lineReg.group(1)
+    print(cmds) # debug
+    if cmds is not None and re.match('.*\S.*',cmds):
+        args = shlex.split(cmds)
+        print(args) # debug
+        try:
+
+            p1 = Popen(["date"], stdout=PIPE)
+            p2 = Popen(["grep Thu"], stdin=p1.stdout, stdout=PIPE)
+
+        except OSError:
+            print(cmdLine, end='')
+        except BrokenPipeError:
+            print("broke the damn pipe")
+    else:
+        print(cmdLine, end='')
+
+
+
+##============================  print_function()  ============================##
+# Print function declaration.
+def print_function():
+    functionText="function"
+    if len(cmdArgs)>0:
+        functionText=cmdArgs[0]
+    if docType in ["py","bash","sh"]:
+        print_head_title()
+    if docType=="py":
+        print(cmdIndent+"def "+functionText+":")
+        print(cmdIndent+"    ")
+    elif docType in ["sh","bash"]:
+        print(cmdIndent+'functionText {')
+        print(cmdIndent+'}')
+    else:
+        print(cmdLine)
+
+
+##==============================  print_new()  ===============================##
+def print_new():
+    8
+
+##===========================  print_head_title()  ===========================##
+# Parse command arguments and print a main header or title bar.
+def print_head_title():
+    global lineWidth, titlePad, headBlock, cmdIndent
+    titleText=""    # text to be printed centered in title bar
+
+    ##=========================  print_title()  ==========================##
+    # Print single line title bar.
+    def print_title():
+        barWidth=lineWidth-len(tBegin)-len(tEnd)-len(cmdIndent)
+        print(cmdIndent+tBegin+str.center(titlePad+titleText+titlePad,
+              barWidth,titleBar)+tEnd)
+
+    ##==========================  print_head()  ==========================##
+    # Print four line heading bar.
+    def print_head():
+        global headTopLeft, headTopRight, headBottomLeft
+        # choose random header comment
+        headBottomRight=random.SystemRandom().choice(headBottomRights)
+        # calculate widths
+        tTW=lineWidth-2*max(len(tBegin),len(headBlock))-len(cmdIndent)
+        hW=lineWidth-2*len(headBlock)-2*len(headPad)-len(cmdIndent)
+        tBW=lineWidth-len(tEnd)-2*len(headBlock)-len(cmdIndent)
+        # trim head text to fit width
+        hTTrim=hW-len(headTopLeft)-len(headTopRight)-2*len(headPad)
+        if hTTrim<0:
+            headTopRight=headTopRight[:hTTrim]
+        hBTrim=hW-len(headBottomLeft)-len(headBottomRight)-2*len(headPad)
+        if hBTrim<0:
+            headBottomRight=headBottomRight[:hBTrim]
+        # create head spacers
+        hTS=' '*(hW-len(headTopLeft)-len(headTopRight))
+        hBS=' '*(hW-len(headBottomLeft)-len(headBottomRight))
+        # build strings
+        tT=tBegin+str.center(titlePad+titleText+titlePad,tTW,titleBar)+\
+            (len(tBegin)-2)*titleBar+headBlock*2
+        hT=headBlock+headPad+headTopLeft+hTS+headTopRight+headPad+headBlock
+        hB=headBlock+headPad+headBottomLeft+hBS+headBottomRight+\
+            headPad+headBlock
+        tB=headBlock*2+titleBar*(tBW)+tEnd
+        # print head
+        print(cmdIndent+tT)
+        print(cmdIndent+hT)
+        print(cmdIndent+hB)
+        print(cmdIndent+tB)
+
+    ##====================================================================##
+    # get head/title text and/or width from cmdArgs
+    if len(cmdArgs)>0:
+        titleText=cmdArgs[0]
+    if len(cmdArgs)>1 and re.match("^[0-9]+$",cmdArgs[1]) is not None:
+        lineWidth=int(cmdArgs[1])
+    # set zero titlePad for empty bar
+    if titleText=="":
+        titlePad=""
+    # set comment characters from document type
+    if docType in ["bash","sh","py","rb","sage","txt"]:
+        tBegin=tEnd="##"
+    elif docType in ["c","cpp","h","java","go","css"]:
+        tBegin="/*"
+        tEnd="*/"
+    elif docType=="tex":
+        tBegin=tEnd="%%"
+        headBlock="%"
+    elif docType=="html":
+        tBegin="<!--<"
+        tEnd=">--->"
+    elif docType=="hs":
+        tBegin=tEnd="##"
+        cmdIndent=cmdIndent+"-- "
+    # call print title or head function
+    if cmd in [":t",":f"]:
+        print_title()
+    elif cmd==":h":
+        print_head()
+
+
+##===========================  print_help_auto()  ============================##
+# Print usage information automatically generated from script header comments.
+def print_help_auto():
+    print(__doc__)
+
+
+##=============================  print_print()  ==============================##
+# Print print statement.  If calling print with ':p' from Geany and print
+# argument is not enclosed in quotes, print-value ':pv" will be called over ':p'
+def print_print():
+    pText=""    # text to print
+
+    ##=========================  print_string()  =========================##
+    # Print standard print string statement.
+    def print_print_string():
+        if docType=="py":
+            print(cmdIndent+cmdPre+'print("'+pText+'")')
+        elif docType=="cpp":
+            print(cmdIndent+cmdPre+'std::cout << "'+pText+'" << std::endl;')
+        elif docType=="java":
+            print(cmdIndent+cmdPre+'System.out.println("'+pText+'");')
+        elif docType=="c":
+            print(cmdIndent+cmdPre+'printf("'+pText+'\\n");')
+        elif docType in ["sh","bash"]:
+            print(cmdIndent+cmdPre+'printf "'+pText+'\\n"')
+        elif docType=="ruby":
+            print(cmdIndent+cmdPre+'puts "'+pText+'"')
+        else:
+            print(cmdLine)
+
+    ##=========================  print_value()  ==========================##
+    # Print standard print statement printing value name and actual value.
+    def print_print_value():
+        if docType=="py":
+            print(cmdIndent+cmdPre+"print(\""+pText+" = \"+"+pText+")")
+        elif docType=="cpp":
+            print(cmdIndent+cmdPre+'std::cout << "'+pText+'" << " = " << '+
+                   pText+' << std::endl;')
+        elif docType=="java":
+            print(cmdIndent+cmdPre+'System.out.println("'+pText+' = "+'+
+                                                                pText+');')
+        elif docType=="c":
+            print(cmdIndent+cmdPre+'printf("pText = %d\\n",'+pText+');')
+        elif docType in ["sh","bash"]:
+            print(cmdIndent+cmdPre+'printf "'+pText+' = $'+pText+'\\n"')
+        elif docType=="ruby":
+            print(cmdIndent+cmdPre+'puts "'+pText+' = "+'+pText)
+        else:
+            print(cmdLine)
+
+    ##====================================================================##
+    # get pText from cmdArgs
+    if len(cmdArgs)>0:
+        pText=cmdArgs[0]
+    regStr=r".*?(--h(elp)?|:[a-z]+) ?(?P<quote>['\"]).*?(?P=quote).*"
+    # call print print function
+    if cmd==":pv" or len(sys.argv)==2 and not re.match(regStr,cmdLine):
+        print_print_value()
+    else:
+        print_print_string()
+
+
+##============================  print_shebang()  =============================##
+# Print document shebang.
+def print_shebang():
+    if docType in ["bash","sh"]:
+        print('#!/bin/bash')
+    elif docType=="py":
+        print('#!/usr/bin/env python')
+    elif docType=="hs":
+        print('#!/usr/bin/env runhaskell')
+    elif docType=="rb":
+        print('#!/usr/bin/env ruby')
+    elif docType=="sage":
+        print('#!/usr/bin/env sage')
+    elif docType=="html":
+        print('<!DOCTYPE html>')
+        print('<html lang="en">')
+
+
+##=============================  print_random()  =============================##
+# Print random text.  If a valid dictionary file is set by dictFile global
+# variable, words will be randomly selected from this file.  If dictFile is
+# blank or invalid, random lowercase letter sequences will be used as words.
+def print_random():
+    randArg=1       # argument supplied to random print function
+
+    ##=====================  get_random_dict_word()  =====================##
+    # Return a random word from dictionary file.
+    def get_random_dict_word():
+        return random.choice(open(dictFile).readlines())[:-1]
+
+    ##===================  'get_random_ascii_word():  ====================##
+    # Return a random string of length 3 to 10 of lowercase letters.
+    def get_random_ascii_word():
+        return ''.join(random.choices(string.ascii_lowercase,
+                                      k=random.randint(3,10)))
+
+    ##=======================  get_random_word()  ========================##
+    # Set get_random_word() function based on existence of dictionary file.
+    if os.path.isfile(dictFile)==True:
+        get_random_word=get_random_dict_word
+    else:
+        get_random_word=get_random_ascii_word
+
+    ##======================  print_random_words()  ======================##
+    # Print random randArg words with line breaks at lineWidth.
+    def print_random_words():
+        w=1
+        randText=cmdIndent+cmdPre+get_random_word()
+        i=len(randText)
+        while w<=randArg:
+            while i<lineWidth and w<=randArg:
+                word=get_random_word()
+                randText+=" "+word
+                i+=len(word)+1
+                w+=1
+            if w<=randArg or len(sys.argv)>2:
+                print(randText[:-(len(word)+1)])
+            else:
+                print(randText[:-(len(word)+1)],end='')
+            randText=cmdIndent+word
+            i=len(randText)
+
+    ##======================  print_random_lines()  ======================##
+    # Print random randArg lines of length lineWidth.
+    def print_random_lines():
+        l=0
+        randText=cmdIndent+cmdPre+get_random_word()
+        i=len(randText)
+        while l<randArg:
+            while i<lineWidth and l<randArg:
+                word=get_random_word()
+                randText+=" "+word
+                i+=len(word)+1
+            print(randText[:-(len(word)+1)])
+            l+=1
+            randText=cmdIndent+word
+            i=len(randText)
+
+    ##====================================================================##
+    # get randArg from cmdArgs
+    if len(cmdArgs)>0 and re.match("^[0-9]+$",cmdArgs[0]) is not None:
+        randArg=int(cmdArgs[0])
+    # call random print function
+    if cmd==":rw":
+        print_random_words()
+    elif cmd in [":r",":rl"]:
+        print_random_lines()
+
+
+# MAIN
+main()
