@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#
 ##===============================  geany-text  ===============================##
 # Copyright (C) 2017  Chris Magyar                       c.magyar.ec@gmail.com #
 ##============================================================================##
@@ -10,9 +11,6 @@
 # This program is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 # FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# this program.  If not, see <http://www.gnu.org/licenses/>.
 """SCRIPT:
     geany-text
 
@@ -125,10 +123,15 @@ USER SETTINGS:
         List of random strings to select from for southeast inner header text.
 """
 #TODO:
-#    :n, :new [name] [author] ...?
+# ** :n, :new [name] [author] ...?
 #        Insert new template with [name] and [author] in appropriate places.
 #        (maybe guess type from document name extension?)
 #        (need to specify what type exactly in some cases though, ie. LaTeX)
+#
+# ** :x, :exe, :run
+#        Execute the remainder of the line as if it were a shell command.
+#        * needs work
+#        * could implement special variables?
 #
 #  * look into piping a bunch of lines to `sort` or `jq` or `tidy` or whatever
 #    (custom tidy functions?)
@@ -138,7 +141,14 @@ USER SETTINGS:
 # ** Use name/PID of calling process to determine parsing and output type.
 #    (or just fully disable calling from a terminal; create wrapper
 #     script/function for calls from the command line if needed)
+#
+# ** Additional header print (:h) options.
+#     * with copywrite statement... other options
+#     * fewer/more lines
+#     * separate commands or :h sub-options?
 
+
+##================================  IMPORTS  =================================##
 import os
 import random
 import re
@@ -152,8 +162,8 @@ import sys
 ##============================  SCRIPT VARIABLES  ============================##
 # Set all user specific settings and default variables.
 ##===========================  user settings  ============================##
-templateDir=""                                  # templates directory
-dictFile="/usr/share/dict/english"              # dictionary file
+templateDir="/home/magyar/arch/dev/templates/"  # templates directory
+dictFile="/usr/share/cracklib/cracklib-small"   # dictionary file
 headBottomLeft="Free as in speech."             # SW heading text
 headBottomRights=[                              # SE heading text choices
     "Bend it to your will!",
@@ -196,7 +206,7 @@ def main():
     elif cmd in [":h",":t"]:
         print_head_title()
     elif cmd==":help":
-        print_help_auto()
+        print(__doc__)
     elif cmd in [":p",":pv"]:
         print_print()
     elif cmd in [":r",":rl",":rw"]:
@@ -420,7 +430,7 @@ def print_ascii_art():
         print(cmdLine)
 
 
-##============================  print_execute()  =============================##
+##======  incomplete  ========  print_execute()  =======  incomplete  ========##
 # Pass remainder of line to shell as a command and print output if no errors.
 def print_execute():
     # get commands after :x execute token
@@ -431,17 +441,14 @@ def print_execute():
         args = shlex.split(cmds)
         print(args) # debug
         try:
-
             p1 = Popen(["date"], stdout=PIPE)
             p2 = Popen(["grep Thu"], stdin=p1.stdout, stdout=PIPE)
-
         except OSError:
             print(cmdLine, end='')
         except BrokenPipeError:
             print("broke the damn pipe")
     else:
         print(cmdLine, end='')
-
 
 
 ##============================  print_function()  ============================##
@@ -461,10 +468,12 @@ def print_function():
     else:
         print(cmdLine)
 
-
-##==============================  print_new()  ===============================##
+##=======  incomplete  =========  print_new()  ========  incomplete  =========##
+# Print new file from template.
 def print_new():
-    8
+    # to do...
+    print("print_new()")
+
 
 ##===========================  print_head_title()  ===========================##
 # Parse command arguments and print a main header or title bar.
@@ -541,12 +550,6 @@ def print_head_title():
         print_title()
     elif cmd==":h":
         print_head()
-
-
-##===========================  print_help_auto()  ============================##
-# Print usage information automatically generated from script header comments.
-def print_help_auto():
-    print(__doc__)
 
 
 ##=============================  print_print()  ==============================##
