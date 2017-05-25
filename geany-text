@@ -146,6 +146,10 @@ USER SETTINGS:
 #     * with copywrite statement... other options
 #     * fewer/more lines
 #     * separate commands or :h sub-options?
+#     * use filename if none given for :h
+#
+#BUGS:
+#  * title bars (:t,:h) in html insert a line break mid-line for some reason
 
 
 ##================================  IMPORTS  =================================##
