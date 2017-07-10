@@ -147,9 +147,6 @@ USER SETTINGS:
 #     * fewer/more lines
 #     * separate commands or :h sub-options?
 #     * use filename if none given for :h
-#
-#BUGS:
-#  * title bars (:t,:h) in html insert a line break mid-line for some reason
 
 
 ##================================  IMPORTS  =================================##
@@ -241,7 +238,7 @@ def parse_input():
             # get entire input line
             cmdLine=str(sys.argv[1]).strip("\n")
             # parse input line
-            regStr=r"(.?.? *)(.*?)(--h(elp)?|:[a-z]+) ?(.*)"
+            regStr=r"( *)(.*?)(--h(elp)?|:[a-z]+) ?(.*)"
             regMatch=re.match(regStr,str(sys.argv[1]))
             if regMatch is not None:
                 # get indent, pretext, and command
